@@ -15,8 +15,8 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          NAME=$(echo "$PR_BODY" | grep -oP '(?<=Student Name: ).*' | tr -d '`' | xargs)
-          EMAIL=$(echo "$PR_BODY" | grep -oP '(?<=UMindanao Email: ).*' | tr -d '`' | xargs)
+          NAME=$(echo "$PR_BODY" | grep -oP '(?<=Student Name: ).*' | tr -d '`\r' | xargs)
+          EMAIL=$(echo "$PR_BODY" | grep -oP '(?<=UMindanao Email: ).*' | tr -d '`\r' | xargs)
 
           echo "student_name=$NAME" >> $GITHUB_OUTPUT
           echo "student_email=$EMAIL" >> $GITHUB_OUTPUT
