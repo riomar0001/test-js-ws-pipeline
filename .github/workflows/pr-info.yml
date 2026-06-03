@@ -1,0 +1,63 @@
+name: PR Info Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  extract-student-info:
+    name: Extract Student Info
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract Name and Email from PR Body
+        id: extract
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          NAME=$(echo "$PR_BODY" | grep -oP '(?<=Student Name: ).*' | tr -d '`' | xargs)
+          EMAIL=$(echo "$PR_BODY" | grep -oP '(?<=UMindanao Email: ).*' | tr -d '`' | xargs)
+
+          echo "student_name=$NAME" >> $GITHUB_OUTPUT
+          echo "student_email=$EMAIL" >> $GITHUB_OUTPUT
+
+          echo "Student Name : $NAME"
+          echo "UMindanao Email: $EMAIL"
+
+      - name: Validate Fields Present
+        run: |
+          NAME="${{ steps.extract.outputs.student_name }}"
+          EMAIL="${{ steps.extract.outputs.student_email }}"
+
+          FAILED=0
+
+          if [ -z "$NAME" ]; then
+            echo "ERROR: Student Name is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ -z "$EMAIL" ]; then
+            echo "ERROR: UMindanao Email is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Please update your PR description to include:"
+            echo "  \`Student Name: Your Full Name\`"
+            echo "  \`UMindanao Email: yourname.123456@umindanao.edu.ph\`"
+            exit 1
+          fi
+
+      - name: Validate UMindanao Email Format
+        run: |
+          EMAIL="${{ steps.extract.outputs.student_email }}"
+
+          if [[ ! "$EMAIL" =~ ^[a-zA-Z0-9._%+-]+@umindanao\.edu\.ph$ ]]; then
+            echo "ERROR: '$EMAIL' is not a valid UMindanao email (@umindanao.edu.ph)."
+            exit 1
+          fi
+
+          echo "All checks passed."
+          echo "  Name  : ${{ steps.extract.outputs.student_name }}"
+          echo "  Email : $EMAIL"
