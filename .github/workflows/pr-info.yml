@@ -1,0 +1,80 @@
+name: PR Info Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  extract-student-info:
+    name: Extract Student Info
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract Student Info from PR Body
+        id: extract
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          FIRST_NAME=$(echo "$PR_BODY" | grep -oP '(?<=First Name: ).*' | tr -d '`\r' | xargs)
+          LAST_NAME=$(echo "$PR_BODY" | grep -oP '(?<=Last Name: ).*' | tr -d '`\r' | xargs)
+          PROGRAM=$(echo "$PR_BODY" | grep -oP '(?<=Program: ).*' | tr -d '`\r' | xargs)
+          EMAIL=$(echo "$PR_BODY" | grep -oP '(?<=UMindanao Email: ).*' | tr -d '`\r' | xargs)
+
+          echo "first_name=$FIRST_NAME" >> $GITHUB_OUTPUT
+          echo "last_name=$LAST_NAME" >> $GITHUB_OUTPUT
+          echo "program=$PROGRAM" >> $GITHUB_OUTPUT
+          echo "student_email=$EMAIL" >> $GITHUB_OUTPUT
+
+      - name: Validate Fields Present
+        run: |
+          FIRST_NAME="${{ steps.extract.outputs.first_name }}"
+          LAST_NAME="${{ steps.extract.outputs.last_name }}"
+          PROGRAM="${{ steps.extract.outputs.program }}"
+          EMAIL="${{ steps.extract.outputs.student_email }}"
+
+          FAILED=0
+
+          if [ -z "$FIRST_NAME" ]; then
+            echo "ERROR: First Name is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ -z "$LAST_NAME" ]; then
+            echo "ERROR: Last Name is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ -z "$PROGRAM" ]; then
+            echo "ERROR: Program is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ -z "$EMAIL" ]; then
+            echo "ERROR: UMindanao Email is missing from the PR body."
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Please update your PR description to include:"
+            echo "  First Name: Your First Name"
+            echo "  Last Name: Your Last Name"
+            echo "  Program: Your Program"
+            echo "  UMindanao Email: yourname.123456@umindanao.edu.ph"
+            exit 1
+          fi
+
+      - name: Validate UMindanao Email Format
+        run: |
+          EMAIL="${{ steps.extract.outputs.student_email }}"
+
+          if [[ ! "$EMAIL" =~ ^[a-zA-Z0-9._%+-]+@umindanao\.edu\.ph$ ]]; then
+            echo "ERROR: '$EMAIL' is not a valid UMindanao email (@umindanao.edu.ph)."
+            exit 1
+          fi
+
+          echo "All checks passed."
+          echo "  First Name : ${{ steps.extract.outputs.first_name }}"
+          echo "  Last Name  : ${{ steps.extract.outputs.last_name }}"
+          echo "  Program    : ${{ steps.extract.outputs.program }}"
+          echo "  Email      : $EMAIL"
